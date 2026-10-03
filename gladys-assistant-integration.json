@@ -6,12 +6,18 @@
     "en": "Grafana next to Gladys, with the history of all your devices as a ready-made data source.",
     "fr": "Grafana à côté de Gladys, avec l'historique de tous vos appareils en source de données prête."
   },
-  "version": "0.1.0",
-  "docker_image": "ghcr.io/quentinlegay/gladys-grafana:0.1.0",
+  "version": "0.1.1",
+  "docker_image": "ghcr.io/quentinlegay/gladys-grafana:0.1.1",
   "gladys_version": ">=4.86.0",
   "cover_image": "https://raw.githubusercontent.com/quentinlegay/gladys-grafana/main/cover.png",
-  "categories": ["energy", "climate", "environment"],
-  "transports": ["local"],
+  "categories": [
+    "energy",
+    "climate",
+    "environment"
+  ],
+  "transports": [
+    "local"
+  ],
   "containers": [
     {
       "name": "grafana",
@@ -20,7 +26,10 @@
       "read_only": true,
       "memory_mb": 512,
       "cpu": 1,
-      "volumes": ["/var/lib/grafana", "/etc/grafana/provisioning"],
+      "volumes": [
+        "/var/lib/grafana",
+        "/etc/grafana/provisioning"
+      ],
       "ports": [
         {
           "container_port": 3000,
