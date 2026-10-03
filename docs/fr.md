@@ -15,30 +15,23 @@ une source de données **Gladys**. Quand Grafana affiche un graphique,
 l'intégration lit l'historique dans Gladys et le lui renvoie. Vos données
 restent dans Gladys : rien n'est copié.
 
-## Configuration
+## Installation
 
-1. Ouvrez l'onglet **Configuration** de l'intégration.
-2. **Compte Gladys** : l'e-mail et le mot de passe d'un compte Gladys. Un
-   compte non administrateur suffit. Le mot de passe sert une seule fois, à
-   créer une clé d'API. Cette clé apparaît dans **Paramètres → Sessions**, où
-   vous pouvez la révoquer.
-3. **Mot de passe administrateur Grafana** : 8 caractères minimum. Le nom
-   d'utilisateur est `admin`.
-4. Enregistrez, puis cliquez sur **Tester la connexion à Gladys**.
+Il n'y a rien à configurer. Installez l'intégration : Grafana démarre en une
+trentaine de secondes.
 
-Grafana démarre en une trentaine de secondes. Ouvrez-le avec le lien
-**Ouvrir Grafana** de l'écran de supervision, ou à l'adresse indiquée en haut
-de la configuration (`http://<ip-de-gladys>:<port>`).
+1. Ouvrez Grafana avec le lien **Ouvrir Grafana** de l'écran de supervision,
+   ou à l'adresse affichée dans l'onglet **Configuration**.
+2. Dans l'onglet **Configuration**, cliquez sur **Afficher les identifiants
+   Grafana**. L'utilisateur est `admin` et le mot de passe a été généré à
+   l'installation.
+3. Connectez-vous : la vue d'ensemble de vos appareils s'affiche.
 
-### Options
-
-- **Consultation sans connexion** : toute personne de votre réseau local peut
-  voir les tableaux de bord sans se connecter, mais pas les modifier. C'est
-  pratique pour une tablette murale.
-- **Générer les tableaux de bord Gladys** : activé par défaut.
-- **URL de Gladys (avancé)** : laissez ce champ vide. Ne le remplissez que si
-  le test de connexion échoue, avec l'adresse de Gladys sur votre réseau (par
-  exemple `http://192.168.1.10`).
+> **Version de Gladys requise.** Pour lire vos appareils, l'intégration a
+> besoin d'une version de Gladys qui autorise les intégrations à lire
+> l'historique des appareils. Avec une version plus ancienne, Grafana
+> fonctionne mais reste vide, et la vue d'ensemble l'indique. Les données
+> apparaissent d'elles-mêmes après la mise à jour de Gladys.
 
 ## Tableaux de bord fournis
 
@@ -85,16 +78,5 @@ panneau.
   qu'en cas de changement affiche donc une ligne continue.
 - Les fonctionnalités dont l'historique est désactivé dans Gladys n'affichent
   que leur dernière valeur.
-- Si vous changez le mot de passe administrateur Grafana dans Gladys,
-  l'intégration l'applique aussi dans Grafana.
-
-## Dépannage
-
-- **« Gladys a refusé l'e-mail ou le mot de passe »** : vérifiez le compte
-  saisi.
-- **« API de Gladys injoignable »** : renseignez l'**URL de Gladys** avec
-  l'adresse IP locale de votre Gladys.
-- **Je ne peux plus me connecter à Grafana** : si le mot de passe a été changé
-  directement dans Grafana, réinitialisez-le depuis le conteneur avec
-  `grafana cli admin reset-admin-password <nouveau>`, puis saisissez-le dans
-  la configuration.
+- Si vous changez le mot de passe `admin` dans Grafana, le bouton **Afficher
+  les identifiants Grafana** affichera toujours l'ancien.

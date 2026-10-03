@@ -3,6 +3,7 @@
 External integration for [Gladys Assistant](https://gladysassistant.com) that
 runs **Grafana** next to Gladys, with the history of every Gladys device
 available as a pre-configured data source, plus generated dashboards.
+**Nothing to configure**: install it, open Grafana.
 
 Built from the official
 [integration template](https://github.com/GladysAssistant/integration-template-js)
@@ -15,9 +16,9 @@ User documentation: [docs/en.md](./docs/en.md) · [docs/fr.md](./docs/fr.md).
 ```
                  private network of the integration
  ┌───────────────────────────────────────────────────────────┐
- │ Grafana (sub-container)  ──Prometheus API──>  integration ─┼──REST──> Gladys
- │   :3000 published on the LAN                 :9090         │   /api/v1/device
- └───────────────────────────────────────────────────────────┘   /api/v1/device_feature/aggregated_states
+ │ Grafana (sub-container)  ──Prometheus API──>  integration ─┼──host API──> Gladys
+ │   :3000 published on the LAN                 :9090         │   (integration token)
+ └───────────────────────────────────────────────────────────┘
 ```
 
 - **Grafana is a sub-container** (`grafana/grafana`, pinned, `start: manual`,
@@ -31,12 +32,11 @@ User documentation: [docs/en.md](./docs/en.md) · [docs/fr.md](./docs/fr.md).
   built-in Prometheus data source speaks — no Grafana plugin to download.
   Grafana reaches it at `http://gladys-<selector>:9090`, with Basic
   credentials generated once and stored in `/data`.
-- **The integration token only opens the host API**, which does not expose the
-  other integrations' devices nor their history. The integration therefore
-  logs in once with a Gladys account (e-mail/password from the config), trades
-  the session for an API key (`POST /api/v1/session/api_key`, revocable in
-  Settings → Sessions), revokes the login session and keeps the key in `/data`.
-  A refused key triggers one new login.
+- **The Gladys data is read with the integration token** — no Gladys account
+  to configure. See [Waiting on Gladys core](#waiting-on-gladys-core).
+- **The Grafana admin password is generated** on first start, kept in
+  `/data`, and shown by the **Show the Grafana credentials** action of the
+  Configuration screen.
 
 ### The data model
 
@@ -69,17 +69,37 @@ rewritten when the device list changes (checked every 5 minutes, or with the
 
 ### Grafana admin password
 
-It goes through `GF_SECURITY_ADMIN_PASSWORD__FILE` (a file in the provisioning
-volume), never through the container env nor the public manifest. Grafana only
-reads it when it creates its database, so a later change is applied through
-the Grafana API with the previous password, remembered in `/data`.
+Generated once (`/data/grafana-admin-secret`) and read by Grafana through
+`GF_SECURITY_ADMIN_PASSWORD__FILE` (a file in the provisioning volume): it
+never goes through the container env nor the public manifest.
+
+## Waiting on Gladys core
+
+Today the host API only returns the devices **created by the integration
+itself** (`GET /api/integration/v1/device`) and has no history route. Until
+Gladys exposes them, the integration runs, Grafana starts, and the data
+source answers empty results; the overview dashboard explains why.
+
+`src/gladys/api.js` already calls the routes this integration expects, with
+the integration token. They mirror the existing user routes:
+
+| Route (host API)                                           | Same answer as                                 |
+| ---------------------------------------------------------- | ---------------------------------------------- |
+| `GET /api/integration/v1/all_devices`                      | `GET /api/v1/device`                           |
+| `GET /api/integration/v1/device_feature/aggregated_states` | `GET /api/v1/device_feature/aggregated_states` |
+
+They should be gated by a manifest permission shown on the install screen,
+like `location: true` gates `getHouses()`. A 404 (route unknown) or 403
+(permission not granted) is treated as "not available yet", not as an
+outage. Once the core change ships: declare the permission in the manifest,
+raise `gladys_version`, and adjust the two paths in `src/gladys/api.js` if
+the final names differ.
 
 ## Layout
 
 ```
-index.js                     SDK wiring: config, actions, lifecycle
-src/config.js                defaults + normalization of the config
-src/gladys/api.js            Gladys REST client (login -> API key)
+index.js                     SDK wiring: setup, action, lifecycle
+src/gladys/api.js            Gladys data through the host API (token)
 src/gladys/catalog.js        devices -> Prometheus series
 src/gladys/history.js        aggregated states, window conversion, cache
 src/prometheus/parser.js     PromQL subset parser
@@ -87,7 +107,7 @@ src/prometheus/engine.js     evaluation on the step grid
 src/prometheus/server.js     Prometheus HTTP API (node:http)
 src/grafana/provisioning.js  data source / dashboards provisioning files
 src/grafana/dashboards.js    generated dashboards
-src/grafana/container.js     sub-container env, start, admin password sync
+src/grafana/container.js     sub-container env and start
 ```
 
 ## Development

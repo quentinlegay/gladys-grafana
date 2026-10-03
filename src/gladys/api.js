@@ -1,194 +1,75 @@
 // -----------------------------------------------------------------------------
-// Client of the Gladys REST API (the one the Gladys web UI uses).
+// Access to the Gladys devices and their history, with the integration token.
 //
-// The integration token only opens the host API (/api/integration/v1): it
-// cannot read the devices and states of the other integrations. Grafana needs
-// all of them, so we authenticate as a Gladys user:
+// No Gladys account to configure: the integration reads the data through the
+// host API (/api/integration/v1), like every other host API call of the SDK.
 //
-//   1. POST /api/v1/login with the configured e-mail/password;
-//   2. POST /api/v1/session/api_key -> a long-lived API key, listed (and
-//      revocable) in Gladys under Settings > Sessions;
-//   3. revoke the login session, which we no longer need.
+// The two routes below do not exist in Gladys yet: the host API only exposes
+// the devices created by the integration itself. They are the contract of the
+// core change this integration waits for (a manifest permission granting the
+// read access to every device, shown on the install screen like `location`):
 //
-// The API key is kept in /data so the password is only used again when the
-// key is refused (revoked, other account configured…).
+//   GET /api/integration/v1/all_devices
+//       -> same answer as GET /api/v1/device (features, room, service)
+//   GET /api/integration/v1/device_feature/aggregated_states
+//       ?device_features=a,b&interval=<min>&offset=<min>&max_states=<n>
+//       -> same answer as GET /api/v1/device_feature/aggregated_states
+//
+// Until then Gladys answers 404 (route unknown) or 403 (permission not
+// granted): the error says so, Grafana shows it in its panels.
 // -----------------------------------------------------------------------------
 
-import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
-import path from 'node:path';
-import { createLogger } from '@gladysassistant/integration-sdk';
+export const ALL_DEVICES_PATH = '/all_devices';
+export const AGGREGATED_STATES_PATH = '/device_feature/aggregated_states';
 
-const logger = createLogger({ name: 'gladys-api' });
+export const NOT_AVAILABLE_MESSAGE =
+  'This Gladys version does not let integrations read the device history yet.';
 
-const REQUEST_TIMEOUT_MS = 20_000;
-
-export class GladysApiError extends Error {
-  constructor(status, message) {
-    super(message);
-    this.name = 'GladysApiError';
-    this.status = status;
+export class GladysDataUnavailableError extends Error {
+  constructor(cause) {
+    super(NOT_AVAILABLE_MESSAGE);
+    this.name = 'GladysDataUnavailableError';
+    this.status = cause?.status;
   }
 }
 
 export class GladysApi {
   /**
-   * @param {object} options
-   * @param {string} options.dataDir where the API key is persisted
-   * @param {typeof fetch} [options.fetch] injectable for tests
+   * @param {{ get: (path: string) => Promise<any> }} http the SDK host API
+   * client (`gladys.httpClient`), already authenticated with the token.
    */
-  constructor({ dataDir, fetch: fetchImpl = globalThis.fetch } = {}) {
-    this.keyFile = path.join(dataDir, 'gladys-api-key.json');
-    this.fetch = fetchImpl;
-    this.baseUrl = null;
-    this.email = null;
-    this.password = null;
-    this.apiKey = null;
-    this.loginPromise = null;
+  constructor(http) {
+    this.http = http;
   }
 
-  /** Apply new credentials; the stored key is kept only if it belongs to them. */
-  configure({ baseUrl, email, password }) {
-    const changed = baseUrl !== this.baseUrl || email !== this.email;
-    this.baseUrl = baseUrl;
-    this.email = email;
-    this.password = password;
-    if (changed) this.apiKey = null;
-  }
-
-  // The key is bound to the account and the instance it was created on.
-  owner() {
-    return createHash('sha256').update(`${this.baseUrl}\n${this.email}`).digest('hex');
-  }
-
-  async loadKey() {
+  async get(path, isRouteMissing) {
     try {
-      const stored = JSON.parse(await readFile(this.keyFile, 'utf8'));
-      return stored.owner === this.owner() ? stored.api_key : null;
-    } catch {
-      return null;
-    }
-  }
-
-  async saveKey(apiKey) {
-    try {
-      await mkdir(path.dirname(this.keyFile), { recursive: true });
-      await writeFile(this.keyFile, JSON.stringify({ owner: this.owner(), api_key: apiKey }), {
-        mode: 0o600,
-      });
+      return await this.http.get(path);
     } catch (err) {
-      logger.warn(`Could not persist the Gladys API key: ${err.message}`);
-    }
-  }
-
-  async forgetKey() {
-    this.apiKey = null;
-    await rm(this.keyFile, { force: true }).catch(() => {});
-  }
-
-  async rawRequest(method, urlPath, { headers = {}, body, query } = {}) {
-    const url = new URL(urlPath, this.baseUrl);
-    for (const [key, value] of Object.entries(query ?? {})) {
-      if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
-    }
-    let response;
-    try {
-      response = await this.fetch(url, {
-        method,
-        headers: {
-          accept: 'application/json',
-          ...(body ? { 'content-type': 'application/json' } : {}),
-          ...headers,
-        },
-        body: body ? JSON.stringify(body) : undefined,
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
-    } catch (err) {
-      throw new GladysApiError(0, `Gladys unreachable at ${this.baseUrl} (${err.message})`);
-    }
-    const text = await response.text();
-    let payload;
-    try {
-      payload = text ? JSON.parse(text) : null;
-    } catch {
-      payload = text;
-    }
-    if (!response.ok) {
-      const detail = payload?.message || payload?.error || response.statusText;
-      throw new GladysApiError(response.status, `${method} ${url.pathname}: ${detail}`);
-    }
-    return payload;
-  }
-
-  /** Log in with the password and trade the session for an API key. */
-  async login() {
-    if (!this.email || !this.password) {
-      throw new GladysApiError(401, 'No Gladys credentials configured');
-    }
-    logger.info(`Logging in to Gladys as ${this.email} to create an API key`);
-    const session = await this.rawRequest('POST', '/api/v1/login', {
-      body: { email: this.email, password: this.password },
-    });
-    const bearer = { authorization: `Bearer ${session.access_token}` };
-    const { api_key: apiKey } = await this.rawRequest('POST', '/api/v1/session/api_key', {
-      headers: bearer,
-      body: {},
-    });
-    // The login session is useless now: revoke it so it does not linger.
-    if (session.session_id) {
-      await this.rawRequest('POST', `/api/v1/session/${session.session_id}/revoke`, {
-        headers: bearer,
-      }).catch((err) => logger.debug(`Login session not revoked: ${err.message}`));
-    }
-    this.apiKey = apiKey;
-    await this.saveKey(apiKey);
-    return apiKey;
-  }
-
-  async ensureKey() {
-    if (this.apiKey) return this.apiKey;
-    const stored = await this.loadKey();
-    if (stored) {
-      this.apiKey = stored;
-      return stored;
-    }
-    // Concurrent requests share a single login.
-    this.loginPromise ??= this.login().finally(() => {
-      this.loginPromise = null;
-    });
-    return this.loginPromise;
-  }
-
-  /** Authenticated GET; a refused key triggers one new login. */
-  async get(urlPath, query) {
-    const apiKey = await this.ensureKey();
-    try {
-      return await this.rawRequest('GET', urlPath, { headers: { authorization: apiKey }, query });
-    } catch (err) {
-      if (err.status !== 401) throw err;
-      logger.warn('Gladys refused the API key: logging in again');
-      await this.forgetKey();
-      const fresh = await this.ensureKey();
-      return this.rawRequest('GET', urlPath, { headers: { authorization: fresh }, query });
+      if (isRouteMissing(err)) throw new GladysDataUnavailableError(err);
+      throw err;
     }
   }
 
   /** Every device, with its features, room and service. */
   getDevices() {
-    return this.get('/api/v1/device');
+    return this.get(ALL_DEVICES_PATH, (err) => err.status === 404 || err.status === 403);
   }
 
   /**
    * Aggregated history of several features over [now - offset - interval,
    * now - offset] (minutes), in at most `maxStates` buckets per feature.
-   * Answers one entry per selector, in the same order.
+   * Answers one entry per selector, in the same order. A 404 here means a
+   * feature deleted since the device list was read (see history.js), so only
+   * the 403 of a missing permission is turned into "not available".
    */
   getAggregatedStates(selectors, { interval, offset = 0, maxStates }) {
-    return this.get('/api/v1/device_feature/aggregated_states', {
+    const query = new URLSearchParams({
       device_features: selectors.join(','),
-      interval,
-      offset,
-      max_states: maxStates,
+      interval: String(interval),
+      offset: String(offset),
+      max_states: String(maxStates),
     });
+    return this.get(`${AGGREGATED_STATES_PATH}?${query}`, (err) => err.status === 403);
   }
 }

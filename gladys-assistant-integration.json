@@ -39,12 +39,12 @@
       "key": "intro",
       "type": "section",
       "label": {
-        "en": "How it works",
-        "fr": "Fonctionnement"
+        "en": "Grafana",
+        "fr": "Grafana"
       },
       "description": {
-        "en": "This integration runs Grafana next to Gladys and connects it to the history of all your devices. Once configured, open Grafana at http://{{gladys_host}}:{{port:grafana_ui}} and sign in with the user \"admin\" and the password chosen below. The \"Gladys\" data source and the \"Gladys\" dashboard folder are ready to use.",
-        "fr": "Cette intégration lance Grafana à côté de Gladys et le branche sur l'historique de tous vos appareils. Une fois configuré, ouvrez Grafana sur http://{{gladys_host}}:{{port:grafana_ui}} et connectez-vous avec l'utilisateur « admin » et le mot de passe choisi ci-dessous. La source de données « Gladys » et le dossier de tableaux de bord « Gladys » sont prêts à l'emploi."
+        "en": "Nothing to configure. Grafana runs next to Gladys at http://{{gladys_host}}:{{port:grafana_ui}}, with the \"Gladys\" data source and dashboards ready to use. Sign in with the user \"admin\": click \"Show the Grafana credentials\" below to get the password.",
+        "fr": "Rien à configurer. Grafana tourne à côté de Gladys sur http://{{gladys_host}}:{{port:grafana_ui}}, avec la source de données « Gladys » et des tableaux de bord prêts à l'emploi. Connectez-vous avec l'utilisateur « admin » : cliquez sur « Afficher les identifiants Grafana » ci-dessous pour obtenir le mot de passe."
       },
       "links": [
         {
@@ -55,125 +55,16 @@
           }
         }
       ]
-    },
-    {
-      "key": "gladys_section",
-      "type": "section",
-      "label": {
-        "en": "Gladys account",
-        "fr": "Compte Gladys"
-      },
-      "description": {
-        "en": "Grafana reads your devices with this account. The password is only used to create an API key, listed in Settings > Sessions where you can revoke it. A non-admin account is enough.",
-        "fr": "Grafana lit vos appareils avec ce compte. Le mot de passe sert uniquement à créer une clé d'API, visible dans Paramètres > Sessions où vous pouvez la révoquer. Un compte non administrateur suffit."
-      }
-    },
-    {
-      "key": "gladys_email",
-      "type": "string",
-      "label": {
-        "en": "Gladys e-mail",
-        "fr": "E-mail Gladys"
-      },
-      "required": true
-    },
-    {
-      "key": "gladys_password",
-      "type": "secret",
-      "label": {
-        "en": "Gladys password",
-        "fr": "Mot de passe Gladys"
-      },
-      "required": true
-    },
-    {
-      "key": "gladys_url",
-      "type": "string",
-      "label": {
-        "en": "Gladys URL (advanced)",
-        "fr": "URL de Gladys (avancé)"
-      },
-      "description": {
-        "en": "Leave empty: the integration finds Gladys by itself. Only fill it in if the connection test fails.",
-        "fr": "Laissez vide : l'intégration trouve Gladys toute seule. À renseigner uniquement si le test de connexion échoue."
-      },
-      "placeholder": {
-        "en": "http://192.168.1.10:80",
-        "fr": "http://192.168.1.10:80"
-      },
-      "required": false,
-      "default": ""
-    },
-    {
-      "key": "grafana_section",
-      "type": "section",
-      "label": {
-        "en": "Grafana",
-        "fr": "Grafana"
-      },
-      "description": {
-        "en": "Grafana is reachable from your local network. Choose a strong admin password.",
-        "fr": "Grafana est accessible depuis votre réseau local. Choisissez un mot de passe administrateur solide."
-      }
-    },
-    {
-      "key": "grafana_admin_password",
-      "type": "secret",
-      "label": {
-        "en": "Grafana admin password",
-        "fr": "Mot de passe administrateur Grafana"
-      },
-      "description": {
-        "en": "At least 8 characters. User name: admin.",
-        "fr": "8 caractères minimum. Nom d'utilisateur : admin."
-      },
-      "required": true
-    },
-    {
-      "key": "grafana_anonymous",
-      "type": "boolean",
-      "label": {
-        "en": "Read-only access without login",
-        "fr": "Consultation sans connexion"
-      },
-      "description": {
-        "en": "Anyone on your local network can view the dashboards (not edit them). Handy for a wall tablet.",
-        "fr": "Toute personne de votre réseau local peut consulter les tableaux de bord (sans les modifier). Pratique pour une tablette murale."
-      },
-      "required": false,
-      "default": false
-    },
-    {
-      "key": "generate_dashboards",
-      "type": "boolean",
-      "label": {
-        "en": "Generate the Gladys dashboards",
-        "fr": "Générer les tableaux de bord Gladys"
-      },
-      "description": {
-        "en": "An overview of all your measures, kept up to date as you add devices, and a per-device dashboard.",
-        "fr": "Une vue d'ensemble de toutes vos mesures, mise à jour quand vous ajoutez des appareils, et un tableau de bord par appareil."
-      },
-      "required": false,
-      "default": true
     }
   ],
   "actions": [
     {
-      "key": "test_connection",
+      "key": "show_credentials",
       "label": {
-        "en": "Test the connection to Gladys",
-        "fr": "Tester la connexion à Gladys"
+        "en": "Show the Grafana credentials",
+        "fr": "Afficher les identifiants Grafana"
       },
-      "timeout_seconds": 30
-    },
-    {
-      "key": "regenerate_dashboards",
-      "label": {
-        "en": "Regenerate the dashboards",
-        "fr": "Régénérer les tableaux de bord"
-      },
-      "timeout_seconds": 30
+      "timeout_seconds": 10
     }
   ]
 }

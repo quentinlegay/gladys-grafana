@@ -285,7 +285,7 @@ function metricPanel(metric, id, gridPos) {
 }
 
 /** The generated overview dashboard. */
-export function buildOverviewDashboard(series) {
+export function buildOverviewDashboard(series, { unavailable = false } = {}) {
   const metrics = listMetrics(series);
   const panels = metrics.map((metric, i) =>
     metricPanel(metric, i + 1, { x: (i % 2) * 12, y: Math.floor(i / 2) * 9, w: 12, h: 9 }),
@@ -298,8 +298,9 @@ export function buildOverviewDashboard(series) {
       gridPos: { x: 0, y: 0, w: 24, h: 4 },
       options: {
         mode: 'markdown',
-        content:
-          'Aucun appareil Gladys avec des valeurs numériques pour le moment. Ce tableau de bord se met à jour tout seul dès que vous en ajoutez.',
+        content: unavailable
+          ? 'Votre version de Gladys ne permet pas encore aux intégrations de lire l’historique des appareils. Ce tableau de bord se remplira tout seul après la mise à jour de Gladys qui l’autorise.'
+          : 'Aucun appareil Gladys avec des valeurs numériques pour le moment. Ce tableau de bord se met à jour tout seul dès que vous en ajoutez.',
       },
     });
   }

@@ -16,7 +16,7 @@
 // -----------------------------------------------------------------------------
 
 import { randomBytes } from 'node:crypto';
-import { chmod, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { DATASOURCE, buildDeviceDashboard, buildOverviewDashboard } from './dashboards.js';
 
@@ -37,7 +37,6 @@ export function paths(dataDir) {
     dashboardProviders: path.join(provisioning, 'dashboards'),
     dashboards: path.join(provisioning, 'dashboards', 'gladys'),
     secrets: path.join(provisioning, 'secrets'),
-    datasourceSecret: path.join(dataDir, 'datasource-secret'),
   };
 }
 
@@ -86,20 +85,27 @@ providers:
 `;
 }
 
-/** Secret shared by the data source and our API, created once. */
-export async function datasourcePassword(dataDir) {
-  const file = paths(dataDir).datasourceSecret;
+/**
+ * Random secret created on first use and kept in /data, so it survives
+ * restarts and updates. Used for the data source credentials and for the
+ * Grafana admin password (nothing for the user to choose).
+ */
+export async function generatedSecret(dataDir, name) {
+  const file = path.join(dataDir, `${name}-secret`);
   try {
     const existing = (await readFile(file, 'utf8')).trim();
     if (existing) return existing;
   } catch {
     // first run
   }
-  const secret = randomBytes(24).toString('hex');
+  const secret = randomBytes(18).toString('base64url');
   await mkdir(dataDir, { recursive: true });
   await writeFile(file, secret, { mode: 0o600 });
   return secret;
 }
+
+export const datasourcePassword = (dataDir) => generatedSecret(dataDir, 'datasource');
+export const adminPassword = (dataDir) => generatedSecret(dataDir, 'grafana-admin');
 
 async function writeIfChanged(file, content, mode = 0o644) {
   try {
@@ -147,28 +153,22 @@ export async function writeStartupFiles(
   ]);
   // Read through GF_SECURITY_ADMIN_PASSWORD__FILE: the password never goes
   // through the container env (stored by Gladys) nor the public manifest.
-  // Grafana applies it when it creates its database only; later changes are
-  // applied through its API (see container.js).
+  // Grafana applies it when it creates its database; it never changes after.
   await writeIfChanged(path.join(p.secrets, 'admin_password'), adminPassword);
   return changes.some(Boolean);
 }
 
 /**
- * Write (or remove) the Gladys dashboards. Grafana re-reads the folder every
- * 30 s. Returns true when a file changed.
+ * Write the Gladys dashboards. Grafana re-reads the folder every 30 s.
+ * Returns true when a file changed.
  */
-export async function writeDashboards(dataDir, series, { enabled }) {
+export async function writeDashboards(dataDir, series, { unavailable = false } = {}) {
   const { dashboards } = paths(dataDir);
-  if (!enabled) {
-    const existing = await readdir(dashboards).catch(() => []);
-    await Promise.all(existing.map((file) => rm(path.join(dashboards, file), { force: true })));
-    return existing.length > 0;
-  }
   await mkdir(dashboards, { recursive: true });
   const changes = await Promise.all([
     writeIfChanged(
       path.join(dashboards, 'overview.json'),
-      `${JSON.stringify(buildOverviewDashboard(series), null, 2)}\n`,
+      `${JSON.stringify(buildOverviewDashboard(series, { unavailable }), null, 2)}\n`,
     ),
     writeIfChanged(
       path.join(dashboards, 'device.json'),

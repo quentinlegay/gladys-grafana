@@ -10,6 +10,8 @@
 //   avg by (room) (gladys_humidity_sensor_decimal)
 // -----------------------------------------------------------------------------
 
+import { GladysDataUnavailableError } from './api.js';
+
 // Features that carry no numeric history worth plotting.
 const SKIPPED_CATEGORIES = new Set(['camera', 'text', 'input']);
 const SKIPPED_TYPES = new Set(['text', 'image']);
@@ -78,6 +80,8 @@ export class Catalog {
     this.series = [];
     this.fetchedAt = 0;
     this.pending = null;
+    // true while Gladys does not let integrations read the devices yet.
+    this.unavailable = false;
   }
 
   invalidate() {
@@ -87,10 +91,23 @@ export class Catalog {
   async refresh() {
     this.pending ??= this.api
       .getDevices()
-      .then((devices) => {
-        this.series = buildSeries(devices);
+      .then(
+        (devices) => {
+          this.unavailable = false;
+          return buildSeries(devices);
+        },
+        (err) => {
+          // Not an outage: an empty catalog, so Grafana shows "No data"
+          // instead of an error in every panel.
+          if (!(err instanceof GladysDataUnavailableError)) throw err;
+          this.unavailable = true;
+          return [];
+        },
+      )
+      .then((series) => {
+        this.series = series;
         this.fetchedAt = this.now();
-        return this.series;
+        return series;
       })
       .finally(() => {
         this.pending = null;

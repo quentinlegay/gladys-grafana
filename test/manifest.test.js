@@ -7,7 +7,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { DEFAULT_CONFIG } from '../src/config.js';
 import {
   CONTAINER_NAME,
   GRAFANA_DATA_MOUNT,
@@ -43,15 +42,10 @@ test('declaring catalog categories requires Gladys >= 4.86.0', () => {
   );
 });
 
-test('config_schema defaults stay consistent with DEFAULT_CONFIG', () => {
+test('nothing to configure: the config schema only explains', () => {
+  assert.ok(manifest.config_schema.length > 0);
   for (const field of manifest.config_schema) {
-    if (field.default !== undefined) {
-      assert.equal(
-        DEFAULT_CONFIG[field.key],
-        field.default,
-        `DEFAULT_CONFIG.${field.key} must match the manifest default`,
-      );
-    }
+    assert.equal(field.type, 'section', `"${field.key}" would ask the user for a value`);
   }
 });
 
@@ -67,25 +61,9 @@ test('section fields are purely presentational', () => {
       `section "${section.key}" must not have a placeholder`,
     );
     assert.ok(section.label?.en, `section "${section.key}" needs an English label`);
-    assert.ok(
-      !(section.key in DEFAULT_CONFIG),
-      `section "${section.key}" must not appear in DEFAULT_CONFIG`,
-    );
     for (const link of section.links ?? []) {
       assert.match(link.url, /^https:\/\//, 'section links must be https');
     }
-  }
-});
-
-test('every config key except sections has a default in DEFAULT_CONFIG', () => {
-  for (const field of manifest.config_schema.filter((f) => f.type !== 'section')) {
-    assert.ok(field.key in DEFAULT_CONFIG, `DEFAULT_CONFIG.${field.key} is missing`);
-  }
-});
-
-test('passwords are declared as secrets', () => {
-  for (const field of manifest.config_schema.filter((f) => /password/.test(f.key))) {
-    assert.equal(field.type, 'secret', `${field.key} must be a secret field`);
   }
 });
 
