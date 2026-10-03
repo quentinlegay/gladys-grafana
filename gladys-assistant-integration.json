@@ -1,0 +1,179 @@
+{
+  "manifest_version": 1,
+  "type": "device",
+  "name": "Grafana",
+  "description": {
+    "en": "Grafana next to Gladys, with the history of all your devices as a ready-made data source.",
+    "fr": "Grafana à côté de Gladys, avec l'historique de tous vos appareils en source de données prête."
+  },
+  "version": "0.1.0",
+  "docker_image": "ghcr.io/quentinlegay/gladys-grafana:0.1.0",
+  "gladys_version": ">=4.86.0",
+  "cover_image": "https://raw.githubusercontent.com/quentinlegay/gladys-grafana/main/cover.png",
+  "categories": ["energy", "climate", "environment"],
+  "transports": ["local"],
+  "containers": [
+    {
+      "name": "grafana",
+      "docker_image": "grafana/grafana:13.2.3",
+      "start": "manual",
+      "read_only": true,
+      "memory_mb": 512,
+      "cpu": 1,
+      "volumes": ["/var/lib/grafana", "/etc/grafana/provisioning"],
+      "ports": [
+        {
+          "container_port": 3000,
+          "name": "grafana_ui",
+          "label": {
+            "en": "Grafana",
+            "fr": "Grafana"
+          },
+          "browsable": true
+        }
+      ]
+    }
+  ],
+  "config_schema": [
+    {
+      "key": "intro",
+      "type": "section",
+      "label": {
+        "en": "How it works",
+        "fr": "Fonctionnement"
+      },
+      "description": {
+        "en": "This integration runs Grafana next to Gladys and connects it to the history of all your devices. Once configured, open Grafana at http://{{gladys_host}}:{{port:grafana_ui}} and sign in with the user \"admin\" and the password chosen below. The \"Gladys\" data source and the \"Gladys\" dashboard folder are ready to use.",
+        "fr": "Cette intégration lance Grafana à côté de Gladys et le branche sur l'historique de tous vos appareils. Une fois configuré, ouvrez Grafana sur http://{{gladys_host}}:{{port:grafana_ui}} et connectez-vous avec l'utilisateur « admin » et le mot de passe choisi ci-dessous. La source de données « Gladys » et le dossier de tableaux de bord « Gladys » sont prêts à l'emploi."
+      },
+      "links": [
+        {
+          "url": "https://grafana.com/docs/grafana/latest/",
+          "label": {
+            "en": "Grafana documentation",
+            "fr": "Documentation Grafana"
+          }
+        }
+      ]
+    },
+    {
+      "key": "gladys_section",
+      "type": "section",
+      "label": {
+        "en": "Gladys account",
+        "fr": "Compte Gladys"
+      },
+      "description": {
+        "en": "Grafana reads your devices with this account. The password is only used to create an API key, listed in Settings > Sessions where you can revoke it. A non-admin account is enough.",
+        "fr": "Grafana lit vos appareils avec ce compte. Le mot de passe sert uniquement à créer une clé d'API, visible dans Paramètres > Sessions où vous pouvez la révoquer. Un compte non administrateur suffit."
+      }
+    },
+    {
+      "key": "gladys_email",
+      "type": "string",
+      "label": {
+        "en": "Gladys e-mail",
+        "fr": "E-mail Gladys"
+      },
+      "required": true
+    },
+    {
+      "key": "gladys_password",
+      "type": "secret",
+      "label": {
+        "en": "Gladys password",
+        "fr": "Mot de passe Gladys"
+      },
+      "required": true
+    },
+    {
+      "key": "gladys_url",
+      "type": "string",
+      "label": {
+        "en": "Gladys URL (advanced)",
+        "fr": "URL de Gladys (avancé)"
+      },
+      "description": {
+        "en": "Leave empty: the integration finds Gladys by itself. Only fill it in if the connection test fails.",
+        "fr": "Laissez vide : l'intégration trouve Gladys toute seule. À renseigner uniquement si le test de connexion échoue."
+      },
+      "placeholder": {
+        "en": "http://192.168.1.10:80",
+        "fr": "http://192.168.1.10:80"
+      },
+      "required": false,
+      "default": ""
+    },
+    {
+      "key": "grafana_section",
+      "type": "section",
+      "label": {
+        "en": "Grafana",
+        "fr": "Grafana"
+      },
+      "description": {
+        "en": "Grafana is reachable from your local network. Choose a strong admin password.",
+        "fr": "Grafana est accessible depuis votre réseau local. Choisissez un mot de passe administrateur solide."
+      }
+    },
+    {
+      "key": "grafana_admin_password",
+      "type": "secret",
+      "label": {
+        "en": "Grafana admin password",
+        "fr": "Mot de passe administrateur Grafana"
+      },
+      "description": {
+        "en": "At least 8 characters. User name: admin.",
+        "fr": "8 caractères minimum. Nom d'utilisateur : admin."
+      },
+      "required": true
+    },
+    {
+      "key": "grafana_anonymous",
+      "type": "boolean",
+      "label": {
+        "en": "Read-only access without login",
+        "fr": "Consultation sans connexion"
+      },
+      "description": {
+        "en": "Anyone on your local network can view the dashboards (not edit them). Handy for a wall tablet.",
+        "fr": "Toute personne de votre réseau local peut consulter les tableaux de bord (sans les modifier). Pratique pour une tablette murale."
+      },
+      "required": false,
+      "default": false
+    },
+    {
+      "key": "generate_dashboards",
+      "type": "boolean",
+      "label": {
+        "en": "Generate the Gladys dashboards",
+        "fr": "Générer les tableaux de bord Gladys"
+      },
+      "description": {
+        "en": "An overview of all your measures, kept up to date as you add devices, and a per-device dashboard.",
+        "fr": "Une vue d'ensemble de toutes vos mesures, mise à jour quand vous ajoutez des appareils, et un tableau de bord par appareil."
+      },
+      "required": false,
+      "default": true
+    }
+  ],
+  "actions": [
+    {
+      "key": "test_connection",
+      "label": {
+        "en": "Test the connection to Gladys",
+        "fr": "Tester la connexion à Gladys"
+      },
+      "timeout_seconds": 30
+    },
+    {
+      "key": "regenerate_dashboards",
+      "label": {
+        "en": "Regenerate the dashboards",
+        "fr": "Régénérer les tableaux de bord"
+      },
+      "timeout_seconds": 30
+    }
+  ]
+}
